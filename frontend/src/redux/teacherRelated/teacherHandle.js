@@ -5,7 +5,10 @@ import {
     getFailed,
     getError,
     postDone,
-    doneSuccess
+    doneSuccess,
+    updateStatusRequest,
+    updateStatusSuccess,
+    updateStatusFailed
 } from './teacherSlice';
 
 export const getAllTeachers = (id) => async (dispatch) => {
@@ -46,5 +49,22 @@ export const updateTeachSubject = (teacherId, teachSubject) => async (dispatch) 
         dispatch(postDone());
     } catch (error) {
         dispatch(getError(error));
+    }
+}
+
+export const updateAssessmentStatus = (assessmentId, isCompleted) => async (dispatch) => {
+    dispatch(updateStatusRequest());
+
+    try {
+        const result = await axios.put(`${process.env.REACT_APP_BASE_URL}/assessments/${assessmentId}/status`, 
+            { isCompleted }, 
+            { headers: { 'Content-Type': 'application/json' } }
+        );
+        
+        if (result.data) {
+            dispatch(updateStatusSuccess());
+        }
+    } catch (error) {
+        dispatch(updateStatusFailed(error.message));
     }
 }

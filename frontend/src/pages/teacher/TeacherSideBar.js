@@ -29,6 +29,12 @@ const TeacherSideBar = () => {
                     </ListItemIcon>
                     <ListItemText primary={`Class ${sclassName.sclassName}`} />
                 </ListItemButton>
+                <ListItemButton component={Link} to="/Teacher/assessment">
+                    <ListItemIcon>
+                        <ClassOutlinedIcon color={location.pathname.startsWith("/Teacher/assessment") ? 'primary' : 'inherit'} />
+                    </ListItemIcon>
+                    <ListItemText primary={`Assessment ${sclassName.sclassName}`} />
+                </ListItemButton>
                 <ListItemButton component={Link} to="/Teacher/complain">
                     <ListItemIcon>
                         <AnnouncementOutlinedIcon color={location.pathname.startsWith("/Teacher/complain") ? 'primary' : 'inherit'} />

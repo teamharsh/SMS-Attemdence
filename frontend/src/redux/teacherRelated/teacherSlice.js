@@ -40,6 +40,19 @@ const teacherSlice = createSlice({
             state.loading = false;
             state.error = null;
             state.response = null;
+        },
+        updateStatusRequest: (state) => {
+            state.loading = true;
+            state.error = null;
+        },
+        updateStatusSuccess: (state) => {
+            state.loading = false;
+            state.error = null;
+            state.response = "Status updated successfully";
+        },
+        updateStatusFailed: (state, action) => {
+            state.loading = false;
+            state.error = action.payload;
         }
     },
 });
@@ -50,7 +63,10 @@ export const {
     getFailed,
     getError,
     doneSuccess,
-    postDone
+    postDone,
+    updateStatusRequest,
+    updateStatusSuccess,
+    updateStatusFailed
 } = teacherSlice.actions;
 
 export const teacherReducer = teacherSlice.reducer;

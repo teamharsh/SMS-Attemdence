@@ -22,3 +22,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Keep uploads directory but ignore its contents
+/uploads/*
+!/uploads/.gitkeep

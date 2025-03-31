@@ -24,6 +24,8 @@ import TeacherProfile from './TeacherProfile';
 import TeacherViewStudent from './TeacherViewStudent';
 import StudentExamMarks from '../admin/studentRelated/StudentExamMarks';
 import BulkAttendance from './BulkAttendance';
+import TeacherAssessmentPage from './TeacherAssessmentPage';
+import TeacherCreateAssessmentPage from './TeacherCreateAssessmentPage';
 
 const TeacherDashboard = () => {
     const [open, setOpen] = useState(true);
@@ -84,6 +86,9 @@ const TeacherDashboard = () => {
 
                         <Route path="/Teacher/class" element={<TeacherClassDetails />} />
                         <Route path="/Teacher/class/student/:id" element={<TeacherViewStudent />} />
+
+                        <Route path="/Teacher/assessment" element={<TeacherAssessmentPage />} />
+                        <Route path="/Teacher/assessment/create/:subjectID" element={<TeacherCreateAssessmentPage />} />
 
                         <Route path="/Teacher/class/student/attendance/:studentID/:subjectID" element={<StudentAttendance situation="Subject" />} />
                         <Route path="/Teacher/class/student/marks/:studentID/:subjectID" element={<StudentExamMarks situation="Subject" />} />
