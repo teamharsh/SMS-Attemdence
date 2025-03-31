@@ -31,7 +31,13 @@ router.post('/:id/results', submitAssessmentResults);
 // Mark assessment as completed (original route, kept for backward compatibility)
 router.put('/:id/complete', completeAssessment);
 
-// Toggle assessment status (new route)
-router.put('/:id/status', completeAssessment);
+// Toggle assessment status with optional solution file upload
+router.put('/:id/status', upload.single('solutionFile'), async (req, res, next) => {
+    // If a file was uploaded, add its ID to the request body
+    if (req.file) {
+        req.body.solutionPdfUrl = req.file.id;
+    }
+    next();
+}, completeAssessment);
 
 module.exports = router;

@@ -1,30 +1,52 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const fileUpload = require('express-fileupload');
 const path = require('path');
+const methodOverride = require('method-override');
+const Grid = require('gridfs-stream');
+const { GridFsStorage } = require('multer-gridfs-storage');
+const multer = require('multer');
 const app = express();
-// ...existing imports...
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(methodOverride('_method'));
 
-// File upload middleware
-app.use(fileUpload({
-    createParentPath: true,
-    limits: { 
-        fileSize: 20 * 1024 * 1024 // 20MB max file size
-    },
-    abortOnLimit: true
-}));
+// MongoDB connection
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/schoolManagement';
+mongoose.connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => {
+    console.log('MongoDB Connected');
+    
+    // Initialize GridFS
+    const conn = mongoose.connection;
+    let gfs;
+    
+    conn.once('open', () => {
+        // Initialize stream
+        gfs = Grid(conn.db, mongoose.mongo);
+        gfs.collection('uploads');
+        
+        // Make gfs accessible to route handlers
+        app.set('gridfs', gfs);
+    });
+})
+.catch(err => console.log('Database connection error: ' + err));
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// Import routes
 const routes = require('./routes/route.js');
-app.use('/', routes);
+const fileRoutes = require('./routes/file-route');
+const assessmentRoutes = require('./routes/assessment-route');
 
-// ...existing code...
+// Register routes
+app.use('/', routes);
+app.use('/files', fileRoutes);
+app.use('/assessment', assessmentRoutes);

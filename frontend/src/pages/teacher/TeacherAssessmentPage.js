@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getSubjectAssessments } from "../../redux/assessmentRelated/assessmentHandle";
 import { updateAssessmentStatus } from "../../redux/teacherRelated/teacherHandle";
@@ -24,6 +24,8 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  Alert,
+  LinearProgress,
 } from "@mui/material";
 import {
   KeyboardArrowDown,
@@ -32,15 +34,19 @@ import {
   PictureAsPdf,
   Add,
   Close as CloseIcon,
+  CloudUpload,
 } from "@mui/icons-material";
 import { StyledTableCell, StyledTableRow } from "../../components/styles";
+import PDFViewer from "../../components/PDFViewer";
+import StudentResultsTable from "../../components/assessment/StudentResultsTable";
+import axios from "axios";
 
 const TeacherAssessmentPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentUser } = useSelector((state) => state.user);
   const { assessments, loading, error } = useSelector(
-    (state) => state.assessment
+    (state) => state.assessment || { assessments: [] }
   );
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -50,14 +56,18 @@ const TeacherAssessmentPage = () => {
 
   const [openStates, setOpenStates] = useState({});
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [solutionUploadDialogOpen, setSolutionUploadDialogOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [message, setMessage] = useState("");
   const [statusChangeLoading, setStatusChangeLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [currentPdfUrl, setCurrentPdfUrl] = useState("");
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfError, setPdfError] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (teachSubjectID) {
@@ -72,7 +82,6 @@ const TeacherAssessmentPage = () => {
     }));
   };
 
-  // Helper function to determine color based on score
   const getScoreColor = (score, total) => {
     if (!score) return "warning";
     const percentage = (score / total) * 100;
@@ -81,21 +90,16 @@ const TeacherAssessmentPage = () => {
     return "error";
   };
 
-  // Handle viewing PDF documents
   const handleViewPdf = (fileId) => {
     if (!fileId) {
       setMessage("No PDF document available");
       setShowPopup(true);
       return;
     }
-    
-    // Construct a proper URL to fetch the PDF file from the server
+
     const pdfUrl = `${process.env.REACT_APP_BASE_URL}/files/${fileId}/view`;
-    
-    // Set the current PDF URL and open the modal
+
     setCurrentPdfUrl(pdfUrl);
-    setPdfLoading(true);
-    setPdfError(null);
     setPdfOpen(true);
   };
 
@@ -104,31 +108,129 @@ const TeacherAssessmentPage = () => {
     setCurrentPdfUrl("");
   };
 
-  // Navigate to create assessment page
   const handleCreateAssessment = () => {
     if (!teachSubjectID) {
       alert("No subject assigned to you. Please contact administrator.");
       return;
     }
-    console.log("Navigating to create assessment with subject ID:", teachSubjectID);
     navigate(`/Teacher/assessment/create/${teachSubjectID}`);
   };
 
-  // Handle assessment status toggle
   const handleStatusChange = (assessment) => {
     setSelectedAssessment(assessment);
-    setConfirmDialogOpen(true);
+
+    if (!assessment.isCompleted) {
+      setSolutionUploadDialogOpen(true);
+    } else {
+      setConfirmDialogOpen(true);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setUploadedFile(file);
+      setUploadError(null);
+
+      const fileUrl = URL.createObjectURL(file);
+      setPreviewUrl(fileUrl);
+    }
+  };
+
+  const handleFileDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.type === "application/pdf") {
+      setUploadedFile(file);
+      setUploadError(null);
+
+      const fileUrl = URL.createObjectURL(file);
+      setPreviewUrl(fileUrl);
+    } else {
+      setUploadError("Please select a PDF file");
+    }
+  };
+
+  const handleSolutionUpload = async () => {
+    if (!uploadedFile) {
+      setUploadError("Please select a file to upload");
+      return;
+    }
+
+    setStatusChangeLoading(true);
+    setUploadError(null);
+
+    const formData = new FormData();
+    formData.append("file", uploadedFile);
+
+    try {
+      // Step 1: Upload file
+      const uploadResponse = await axios.post(
+        `${process.env.REACT_APP_BASE_URL}/files/upload`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(percentCompleted);
+          },
+        }
+      );
+
+      
+      if (!uploadResponse.data || !uploadResponse.data.fileId) {
+        throw new Error("Server did not return a file ID");
+      }
+
+      const fileId = uploadResponse.data.fileId;
+      
+      // Step 2: Update assessment with file ID
+      
+      const statusResponse = await dispatch(
+        updateAssessmentStatus(
+          selectedAssessment._id,
+          true,
+          fileId
+        )
+      );
+      
+      
+      // Step 3: Refresh assessments list
+      dispatch(getSubjectAssessments(teachSubjectID));
+      
+      // Reset states and close dialog
+      setSolutionUploadDialogOpen(false);
+      setUploadedFile(null);
+      setPreviewUrl("");
+      setUploadProgress(0);
+      
+    } catch (error) {
+      console.error("Error details:", error);
+      
+      let errorMessage = "Failed to upload solution. Please try again.";
+      
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        errorMessage = error.response.data.message || errorMessage;
+      }
+      
+      setUploadError(errorMessage);
+    } finally {
+      setStatusChangeLoading(false);
+    }
   };
 
   const confirmStatusChange = () => {
     if (!selectedAssessment) return;
 
     setStatusChangeLoading(true);
-    const newStatus = !selectedAssessment.isCompleted;
-    
-    dispatch(updateAssessmentStatus(selectedAssessment._id, newStatus))
+
+    dispatch(updateAssessmentStatus(selectedAssessment._id, false))
       .then(() => {
-        // Refresh assessments list after status update
         dispatch(getSubjectAssessments(teachSubjectID));
         setConfirmDialogOpen(false);
         setStatusChangeLoading(false);
@@ -139,6 +241,14 @@ const TeacherAssessmentPage = () => {
         setStatusChangeLoading(false);
       });
   };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   return (
     <>
@@ -243,7 +353,14 @@ const TeacherAssessmentPage = () => {
                               {assessment.totalMarks}
                             </StyledTableCell>
                             <StyledTableCell align="center">
-                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: 1,
+                                }}
+                              >
                                 <Chip
                                   label={
                                     assessment.isCompleted
@@ -261,8 +378,14 @@ const TeacherAssessmentPage = () => {
                                     <Switch
                                       size="small"
                                       checked={assessment.isCompleted}
-                                      onChange={() => handleStatusChange(assessment)}
-                                      color={assessment.isCompleted ? "success" : "warning"}
+                                      onChange={() =>
+                                        handleStatusChange(assessment)
+                                      }
+                                      color={
+                                        assessment.isCompleted
+                                          ? "success"
+                                          : "warning"
+                                      }
                                     />
                                   }
                                   label=""
@@ -334,97 +457,10 @@ const TeacherAssessmentPage = () => {
                                 timeout="auto"
                                 unmountOnExit
                               >
-                                <Box sx={{ m: 2 }}>
-                                  <Typography
-                                    variant="h6"
-                                    gutterBottom
-                                    component="div"
-                                    sx={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 1,
-                                    }}
-                                  >
-                                    Student Results
-                                    <Chip
-                                      label={`${
-                                        assessment.students?.length || 0
-                                      } students`}
-                                      size="small"
-                                      color="secondary"
-                                    />
-                                  </Typography>
-                                  {assessment.students &&
-                                  assessment.students.length > 0 ? (
-                                    <Box sx={{ overflowX: "auto" }}>
-                                      <Table
-                                        size="small"
-                                        aria-label="student results"
-                                      >
-                                        <TableHead>
-                                          <StyledTableRow>
-                                            <StyledTableCell>
-                                              Student Name
-                                            </StyledTableCell>
-                                            <StyledTableCell align="right">
-                                              Marks
-                                            </StyledTableCell>
-                                            <StyledTableCell align="right">
-                                              Status
-                                            </StyledTableCell>
-                                          </StyledTableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                          {assessment.students.map(
-                                            (student) => (
-                                              <StyledTableRow
-                                                key={student._id || student.id}
-                                              >
-                                                <StyledTableCell
-                                                  component="th"
-                                                  scope="row"
-                                                >
-                                                  {student.name}
-                                                </StyledTableCell>
-                                                <StyledTableCell align="right">
-                                                  <Chip
-                                                    label={
-                                                      student.marks !== null
-                                                        ? `${student.marks}/${assessment.totalMarks}`
-                                                        : "Pending"
-                                                    }
-                                                    color={getScoreColor(
-                                                      student.marks,
-                                                      assessment.totalMarks
-                                                    )}
-                                                    size="small"
-                                                  />
-                                                </StyledTableCell>
-                                                <StyledTableCell align="right">
-                                                  <Chip
-                                                    label={student.status}
-                                                    color={
-                                                      student.status ===
-                                                      "Completed"
-                                                        ? "success"
-                                                        : "warning"
-                                                    }
-                                                    size="small"
-                                                    variant="outlined"
-                                                  />
-                                                </StyledTableCell>
-                                              </StyledTableRow>
-                                            )
-                                          )}
-                                        </TableBody>
-                                      </Table>
-                                    </Box>
-                                  ) : (
-                                    <Typography>
-                                      No student results available
-                                    </Typography>
-                                  )}
-                                </Box>
+                                <StudentResultsTable
+                                  students={assessment.students}
+                                  totalMarks={assessment.totalMarks}
+                                />
                               </Collapse>
                             </StyledTableCell>
                           </StyledTableRow>
@@ -454,61 +490,13 @@ const TeacherAssessmentPage = () => {
             )}
           </Box>
 
-          {/* PDF Viewer Dialog */}
-          <Dialog
+          <PDFViewer
             open={pdfOpen}
             onClose={handleClosePdf}
-            fullWidth
-            maxWidth="md"
-            PaperProps={{
-              sx: { height: "80vh" },
-            }}
-          >
-            <DialogTitle>
-              Document Viewer
-              <IconButton
-                onClick={handleClosePdf}
-                sx={{ position: "absolute", right: 8, top: 8 }}
-              >
-                <CloseIcon />
-              </IconButton>
-            </DialogTitle>
-            <DialogContent dividers>
-              {pdfLoading && (
-                <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
-                  <CircularProgress />
-                </Box>
-              )}
-              {pdfError && (
-                <Box sx={{ color: "error.main", textAlign: "center", my: 4 }}>
-                  <Typography variant="h6">Error loading PDF</Typography>
-                  <Typography variant="body1">{pdfError}</Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    sx={{ mt: 2 }}
-                    onClick={() => window.open(currentPdfUrl, "_blank")}
-                  >
-                    Open in New Tab
-                  </Button>
-                </Box>
-              )}
-              <Box sx={{ height: "100%", display: pdfLoading ? "none" : "block" }}>
-                <iframe
-                  src={currentPdfUrl}
-                  style={{ width: "100%", height: "100%", border: "none" }}
-                  onLoad={() => setPdfLoading(false)}
-                  onError={() => {
-                    setPdfLoading(false);
-                    setPdfError("Failed to load the PDF document.");
-                  }}
-                  title="PDF Viewer"
-                />
-              </Box>
-            </DialogContent>
-          </Dialog>
+            pdfUrl={currentPdfUrl}
+            title="Document Viewer"
+          />
 
-          {/* Confirmation Dialog */}
           <Dialog
             open={confirmDialogOpen}
             onClose={() => setConfirmDialogOpen(false)}
@@ -517,20 +505,11 @@ const TeacherAssessmentPage = () => {
             <DialogContent>
               <DialogContentText>
                 Are you sure you want to change this assessment's status from{" "}
-                <strong>
-                  {selectedAssessment?.isCompleted ? "Completed" : "Ongoing"}
-                </strong>{" "}
-                to{" "}
-                <strong>
-                  {selectedAssessment?.isCompleted ? "Ongoing" : "Completed"}
-                </strong>
-                ?
-                {selectedAssessment?.isCompleted && (
-                  <Box sx={{ mt: 2, color: "warning.main" }}>
-                    <strong>Warning:</strong> Setting an assessment back to "Ongoing" may allow 
-                    students to continue submitting solutions.
-                  </Box>
-                )}
+                <strong>Completed</strong> to <strong>Ongoing</strong>?
+                <Box sx={{ mt: 2, color: "warning.main" }}>
+                  <strong>Warning:</strong> Setting an assessment back to
+                  "Ongoing" may allow students to continue submitting solutions.
+                </Box>
               </DialogContentText>
             </DialogContent>
             <DialogActions>
@@ -542,11 +521,133 @@ const TeacherAssessmentPage = () => {
               </Button>
               <Button
                 onClick={confirmStatusChange}
-                color={selectedAssessment?.isCompleted ? "warning" : "success"}
+                color="warning"
                 variant="contained"
                 disabled={statusChangeLoading}
               >
-                {statusChangeLoading ? <CircularProgress size={24} /> : "Confirm"}
+                {statusChangeLoading ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  "Confirm"
+                )}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          <Dialog
+            open={solutionUploadDialogOpen}
+            onClose={() =>
+              !statusChangeLoading && setSolutionUploadDialogOpen(false)
+            }
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogTitle>Upload Solution Document</DialogTitle>
+            <IconButton
+              onClick={() =>
+                !statusChangeLoading && setSolutionUploadDialogOpen(false)
+              }
+              sx={{ position: "absolute", right: 8, top: 8 }}
+              disabled={statusChangeLoading}
+            >
+              <CloseIcon />
+            </IconButton>
+            <DialogContent>
+              <DialogContentText sx={{ mb: 2 }}>
+                Before marking this assessment as completed, please upload a
+                solution document. This will be available to students after the
+                assessment is completed.
+              </DialogContentText>
+
+              {uploadError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {uploadError}
+                </Alert>
+              )}
+
+              <Box
+                sx={{
+                  border: "2px dashed #ccc",
+                  borderRadius: 2,
+                  p: 3,
+                  mb: 3,
+                  textAlign: "center",
+                  backgroundColor: "#f8f8f8",
+                  cursor: "pointer",
+                  "&:hover": {
+                    borderColor: "primary.main",
+                    backgroundColor: "rgba(0, 0, 0, 0.04)",
+                  },
+                }}
+                onClick={() => fileInputRef.current.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleFileDrop}
+              >
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  hidden
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  disabled={statusChangeLoading}
+                />
+
+                <CloudUpload fontSize="large" color="primary" />
+                <Typography variant="body1" sx={{ mt: 1 }}>
+                  {uploadedFile
+                    ? uploadedFile.name
+                    : "Drag and drop a PDF file here or click to browse"}
+                </Typography>
+                {uploadedFile && (
+                  <Typography variant="body2" color="textSecondary">
+                    {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </Typography>
+                )}
+              </Box>
+
+              {statusChangeLoading && (
+                <Box sx={{ width: "100%", mb: 2 }}>
+                  <LinearProgress variant="determinate" value={uploadProgress} />
+                  <Typography variant="body2" align="center" sx={{ mt: 1 }}>
+                    {uploadProgress}% Uploaded
+                  </Typography>
+                </Box>
+              )}
+
+              {previewUrl && (
+                <Box sx={{ height: 300, mb: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Preview:
+                  </Typography>
+                  <iframe
+                    src={previewUrl}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      border: "1px solid #ccc",
+                    }}
+                    title="PDF Preview"
+                  />
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => setSolutionUploadDialogOpen(false)}
+                disabled={statusChangeLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSolutionUpload}
+                color="success"
+                variant="contained"
+                disabled={!uploadedFile || statusChangeLoading}
+                startIcon={
+                  statusChangeLoading ? <CircularProgress size={20} /> : null
+                }
+              >
+                {statusChangeLoading ? "Uploading..." : "Upload & Mark Completed"}
               </Button>
             </DialogActions>
           </Dialog>

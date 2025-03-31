@@ -22,7 +22,6 @@ const TeacherCreateAssessmentPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   
-  console.log("Subject ID from URL params:", subjectID);
   
   const { status, loading, error } = useSelector((state) => state.assessment);
   const { currentUser } = useSelector((state) => state.user);
@@ -110,7 +109,6 @@ const TeacherCreateAssessmentPage = () => {
       return;
     }
 
-    console.log("Submitting with subject ID:", formData.subjectId);
 
     // Create FormData object for file upload
     const assessmentFormData = new FormData();

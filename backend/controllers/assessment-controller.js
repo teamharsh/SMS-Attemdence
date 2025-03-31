@@ -3,10 +3,8 @@ const Subject = require('../models/subjectSchema.js');
 const Student = require('../models/studentSchema.js');
 const mongoose = require('mongoose');
 
-// Create a new assessment
 const createAssessment = async (req, res) => {
     try {
-        // Check if file was uploaded successfully
         if (!req.file) {
             return res.status(400).send({ message: 'Question PDF file is required' });
         }
@@ -19,10 +17,7 @@ const createAssessment = async (req, res) => {
             return res.status(400).send({ message: 'Teacher ID is required' });
         }
         
-        console.log("Creating assessment with subject ID:", req.body.subjectId);
-        console.log("Creating assessment with teacher ID:", req.body.teacherId);
 
-        // Create new assessment
         const assessment = new Assessment({
             title: req.body.title,
             description: req.body.description,
@@ -234,17 +229,39 @@ const completeAssessment = async (req, res) => {
             return res.status(404).send({ message: "Assessment not found" });
         }
 
-        // If isCompleted is explicitly provided in the request body, use that value
-        // Otherwise, just set to true (for backward compatibility)
-        if (req.body && req.body.hasOwnProperty('isCompleted')) {
-            assessment.isCompleted = req.body.isCompleted;
-        } else {
-            assessment.isCompleted = true;
+        // Update fields from request body
+        if (req.body) {
+            // Update isCompleted status if provided
+            if (req.body.hasOwnProperty('isCompleted')) {
+                assessment.isCompleted = req.body.isCompleted;
+            } else {
+                assessment.isCompleted = true; // Default for backward compatibility
+            }
+            
+            // Update solution PDF URL if provided
+            if (req.body.solutionPdfUrl) {
+                assessment.solutionPdfUrl = req.body.solutionPdfUrl;
+                
+                // Add metadata to the file in GridFS if gridfs is available
+                try {
+                    const gfs = req.app.get('gridfs');
+                    if (gfs) {
+                        await gfs.files.updateOne(
+                            { _id: new mongoose.Types.ObjectId(req.body.solutionPdfUrl) },
+                            { $set: { "metadata.assessmentId": assessment._id, "metadata.type": "solution" } }
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error updating solution file metadata:', error);
+                    // Continue with assessment update even if metadata update fails
+                }
+            }
         }
         
         const result = await assessment.save();
         res.send(result);
     } catch (err) {
+        console.error('Error updating assessment status:', err);
         res.status(500).json({ message: err.message });
     }
 };
