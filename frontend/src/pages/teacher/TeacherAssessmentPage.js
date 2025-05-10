@@ -56,7 +56,8 @@ const TeacherAssessmentPage = () => {
 
   const [openStates, setOpenStates] = useState({});
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [solutionUploadDialogOpen, setSolutionUploadDialogOpen] = useState(false);
+  const [solutionUploadDialogOpen, setSolutionUploadDialogOpen] =
+    useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [message, setMessage] = useState("");
   const [statusChangeLoading, setStatusChangeLoading] = useState(false);
@@ -97,10 +98,20 @@ const TeacherAssessmentPage = () => {
       return;
     }
 
-    const pdfUrl = `${process.env.REACT_APP_BASE_URL}/files/${fileId}/view`;
+    const actualFileId = typeof fileId === "object" && fileId._id ? fileId._id : fileId;
+
+    console.log(`Viewing PDF with ID: ${actualFileId}`);
+
+    const pdfUrl = `${process.env.REACT_APP_BASE_URL}/files/${actualFileId}/view`;
+    console.log(`Constructed PDF URL: ${pdfUrl}`);
 
     setCurrentPdfUrl(pdfUrl);
     setPdfOpen(true);
+  };
+
+  const testViewSpecificPdf = () => {
+    const knownFileId = "67eace5d7d28757ce6eefb78";
+    handleViewPdf(knownFileId);
   };
 
   const handleClosePdf = () => {
@@ -164,7 +175,6 @@ const TeacherAssessmentPage = () => {
     formData.append("file", uploadedFile);
 
     try {
-      // Step 1: Upload file
       const uploadResponse = await axios.post(
         `${process.env.REACT_APP_BASE_URL}/files/upload`,
         formData,
@@ -181,43 +191,32 @@ const TeacherAssessmentPage = () => {
         }
       );
 
-      
       if (!uploadResponse.data || !uploadResponse.data.fileId) {
         throw new Error("Server did not return a file ID");
       }
 
       const fileId = uploadResponse.data.fileId;
-      
-      // Step 2: Update assessment with file ID
-      
+
       const statusResponse = await dispatch(
-        updateAssessmentStatus(
-          selectedAssessment._id,
-          true,
-          fileId
-        )
+        updateAssessmentStatus(selectedAssessment._id, true, fileId)
       );
-      
-      
-      // Step 3: Refresh assessments list
+
       dispatch(getSubjectAssessments(teachSubjectID));
-      
-      // Reset states and close dialog
+
       setSolutionUploadDialogOpen(false);
       setUploadedFile(null);
       setPreviewUrl("");
       setUploadProgress(0);
-      
     } catch (error) {
       console.error("Error details:", error);
-      
+
       let errorMessage = "Failed to upload solution. Please try again.";
-      
+
       if (error.response) {
         console.error("Error response data:", error.response.data);
         errorMessage = error.response.data.message || errorMessage;
       }
-      
+
       setUploadError(errorMessage);
     } finally {
       setStatusChangeLoading(false);
@@ -285,6 +284,17 @@ const TeacherAssessmentPage = () => {
               >
                 New Assessment
               </Button>
+
+              {process.env.NODE_ENV === "development" && (
+                <Button
+                  variant="outlined"
+                  color="info"
+                  onClick={testViewSpecificPdf}
+                  startIcon={<PictureAsPdf />}
+                >
+                  Test PDF (67eace5d...)
+                </Button>
+              )}
             </Box>
           </Box>
 
@@ -368,7 +378,9 @@ const TeacherAssessmentPage = () => {
                                       : "Ongoing"
                                   }
                                   color={
-                                    assessment.isCompleted ? "success" : "warning"
+                                    assessment.isCompleted
+                                      ? "success"
+                                      : "warning"
                                   }
                                   size="small"
                                   variant="outlined"
@@ -421,9 +433,13 @@ const TeacherAssessmentPage = () => {
                                   variant="contained"
                                   color="info"
                                   size="small"
-                                  onClick={() =>
-                                    handleViewPdf(assessment.questionPdfUrl)
-                                  }
+                                  onClick={() => {
+                                    console.log(
+                                      "Question PDF URL:",
+                                      assessment.questionPdfUrl
+                                    );
+                                    handleViewPdf(assessment.questionPdfUrl);
+                                  }}
                                   startIcon={<PictureAsPdf />}
                                   sx={{ minWidth: "100px" }}
                                 >
@@ -607,7 +623,10 @@ const TeacherAssessmentPage = () => {
 
               {statusChangeLoading && (
                 <Box sx={{ width: "100%", mb: 2 }}>
-                  <LinearProgress variant="determinate" value={uploadProgress} />
+                  <LinearProgress
+                    variant="determinate"
+                    value={uploadProgress}
+                  />
                   <Typography variant="body2" align="center" sx={{ mt: 1 }}>
                     {uploadProgress}% Uploaded
                   </Typography>
@@ -647,7 +666,9 @@ const TeacherAssessmentPage = () => {
                   statusChangeLoading ? <CircularProgress size={20} /> : null
                 }
               >
-                {statusChangeLoading ? "Uploading..." : "Upload & Mark Completed"}
+                {statusChangeLoading
+                  ? "Uploading..."
+                  : "Upload & Mark Completed"}
               </Button>
             </DialogActions>
           </Dialog>

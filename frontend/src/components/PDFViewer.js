@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -8,8 +8,9 @@ import {
   CircularProgress,
   Typography,
   Button,
+  Alert,
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import { Close as CloseIcon, OpenInNew } from '@mui/icons-material';
 
 /**
  * PDFViewer component for displaying PDF documents in a modal dialog
@@ -22,12 +23,31 @@ import { Close as CloseIcon } from '@mui/icons-material';
 const PDFViewer = ({ open, onClose, pdfUrl, title = "Document Viewer" }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    // Reset states when the URL changes
+    if (pdfUrl) {
+      setLoading(true);
+      setError(null);
+      // Log the URL to help with debugging
+      console.log(`Loading PDF from: ${pdfUrl}`);
+    }
+  }, [pdfUrl]);
 
   const handleClose = () => {
     onClose();
     // Reset states when dialog is closed
     setLoading(true);
     setError(null);
+    setRetryCount(0);
+  };
+
+  // Function to handle retry
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    setRetryCount(prev => prev + 1);
   };
 
   return (
@@ -57,13 +77,24 @@ const PDFViewer = ({ open, onClose, pdfUrl, title = "Document Viewer" }) => {
         )}
         {error && (
           <Box sx={{ color: "error.main", textAlign: "center", my: 4 }}>
-            <Typography variant="h6">Error loading PDF</Typography>
-            <Typography variant="body1">{error}</Typography>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="h6">Error loading PDF</Typography>
+              <Typography variant="body1">{error}</Typography>
+            </Alert>
             <Button
               variant="contained"
               color="primary"
+              sx={{ mt: 2, mr: 1 }}
+              onClick={handleRetry}
+            >
+              Retry
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
               sx={{ mt: 2 }}
               onClick={() => window.open(pdfUrl, "_blank")}
+              startIcon={<OpenInNew />}
             >
               Open in New Tab
             </Button>
@@ -72,12 +103,13 @@ const PDFViewer = ({ open, onClose, pdfUrl, title = "Document Viewer" }) => {
         <Box sx={{ height: "100%", display: loading ? "none" : "block" }}>
           {pdfUrl && (
             <iframe
-              src={pdfUrl}
+              src={`${pdfUrl}?v=${retryCount}`}
               style={{ width: "100%", height: "100%", border: "none" }}
               onLoad={() => setLoading(false)}
-              onError={() => {
+              onError={(e) => {
+                console.error("PDF iframe error:", e);
                 setLoading(false);
-                setError("Failed to load the PDF document.");
+                setError("Failed to load the PDF document. The file might not exist or there might be a server error.");
               }}
               title="PDF Viewer"
             />
