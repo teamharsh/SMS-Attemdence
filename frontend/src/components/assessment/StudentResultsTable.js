@@ -32,8 +32,9 @@ import { StyledTableCell, StyledTableRow } from '../styles';
  * @param {Array} props.students - Array of student objects with results
  * @param {Number} props.totalMarks - Total possible marks for the assessment
  * @param {String} props.assessmentId - ID of the assessment
+ * @param {Function} props.onUpdate - Callback function to refresh assessment data
  */
-const StudentResultsTable = ({ students, totalMarks, assessmentId }) => {
+const StudentResultsTable = ({ students, totalMarks, assessmentId, onUpdate }) => {
   const [editingStudent, setEditingStudent] = useState(null);
   const [editedMarks, setEditedMarks] = useState("");
   const [loading, setLoading] = useState(false);
@@ -71,8 +72,9 @@ const StudentResultsTable = ({ students, totalMarks, assessmentId }) => {
     setLoading(true);
 
     try {
-      // Determine status based on marks
-      const status = marksValue > 0 ? 'Completed' : 'Pending';
+      // Always set status to 'Completed' when marks are entered
+      // This ensures students can see their marks and status is properly updated
+      const status = 'Completed';
 
       await axios.post(`${process.env.REACT_APP_BASE_URL}/assessments/${assessmentId}/results`, {
         studentId,
@@ -87,8 +89,10 @@ const StudentResultsTable = ({ students, totalMarks, assessmentId }) => {
       });
       setEditingStudent(null);
       
-      // Here you would typically refresh the assessment data
-      // This would come from a prop or be handled by the parent component
+      // Call the onUpdate callback to refresh assessment data
+      if (onUpdate && typeof onUpdate === 'function') {
+        onUpdate();
+      }
       
     } catch (error) {
       console.error('Error updating marks:', error);

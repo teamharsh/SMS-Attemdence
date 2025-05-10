@@ -69,12 +69,13 @@ const TeacherAssessmentPage = () => {
   const [uploadError, setUploadError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const fileInputRef = useRef(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     if (teachSubjectID) {
       dispatch(getSubjectAssessments(teachSubjectID));
     }
-  }, [dispatch, teachSubjectID]);
+  }, [dispatch, teachSubjectID, refreshTrigger]);
 
   const handleOpen = (assessmentId) => {
     setOpenStates((prevState) => ({
@@ -248,6 +249,11 @@ const TeacherAssessmentPage = () => {
       }
     };
   }, [previewUrl]);
+
+  // Function to refresh assessments data
+  const refreshAssessments = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   return (
     <>
@@ -477,6 +483,7 @@ const TeacherAssessmentPage = () => {
                                   students={assessment.students}
                                   totalMarks={assessment.totalMarks}
                                   assessmentId={assessment._id}
+                                  onUpdate={refreshAssessments}
                                 />
                               </Collapse>
                             </StyledTableCell>

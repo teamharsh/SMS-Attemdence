@@ -154,9 +154,27 @@ const StudentAssessmentPage = () => {
                   </StyledTableCell>
                   <StyledTableCell>{assessment.totalMarks}</StyledTableCell>
                   <StyledTableCell align="center">
-                    {studentResult?.marks !== null && studentResult?.marks !== undefined
-                      ? studentResult.marks
-                      : "Not graded yet"}
+                    {studentResult?.marks !== null && studentResult?.marks !== undefined ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <Typography 
+                          fontWeight="bold" 
+                          color={studentResult.marks > (assessment.totalMarks * 0.6) ? 'success.main' : 'warning.main'}
+                        >
+                          {studentResult.marks}
+                        </Typography>
+                        {studentResult.status === 'Completed' && (
+                          <Chip 
+                            label="Graded" 
+                            color="success" 
+                            size="small" 
+                            variant="outlined"
+                            sx={{ ml: 1 }} 
+                          />
+                        )}
+                      </Box>
+                    ) : (
+                      "Not graded yet"
+                    )}
                   </StyledTableCell>
                   <StyledTableCell align="center">
                     <Chip

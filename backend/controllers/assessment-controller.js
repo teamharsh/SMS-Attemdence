@@ -200,9 +200,17 @@ const submitAssessmentResults = async (req, res) => {
             return res.status(404).send({ message: "Student not found in this assessment" });
         }
 
-        // Update student marks and status
+        // Update student marks
         assessment.students[studentIndex].marks = marks;
-        assessment.students[studentIndex].status = status;
+        
+        // If marks are provided, automatically set status to 'Completed'
+        // This ensures consistency between marks and status
+        if (marks !== null && marks !== undefined) {
+            assessment.students[studentIndex].status = 'Completed';
+        } else {
+            // Use the provided status if no marks
+            assessment.students[studentIndex].status = status || 'Pending';
+        }
 
         // Check if all students are completed to update assessment status
         const allCompleted = assessment.students.every(student => 
