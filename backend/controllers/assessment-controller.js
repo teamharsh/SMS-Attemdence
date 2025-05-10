@@ -266,6 +266,44 @@ const completeAssessment = async (req, res) => {
     }
 };
 
+// Get assessments for a student
+const getStudentAssessments = async (req, res) => {
+    try {
+        const studentId = req.params.id;
+        
+        // First find all subjects the student is enrolled in
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).send({ message: "Student not found" });
+        }
+
+        // Get the student's class
+        const className = student.sclassName;
+        
+        // Find subjects for that class
+        const subjects = await Subject.find({ sclassName: className });
+        if (!subjects || subjects.length === 0) {
+            return res.send({ message: "No subjects found for this student's class" });
+        }
+
+        const subjectIds = subjects.map(subject => subject._id);
+        
+        // Find assessments for these subjects
+        const assessments = await Assessment.find({ 
+            subjectId: { $in: subjectIds },
+            'students.studentId': studentId
+        })
+        .populate('teacherId', 'name')
+        .populate('subjectId', 'subName')
+        .sort({ date: -1 }); // Sort by date, newest first
+        
+        res.send(assessments);
+    } catch (err) {
+        console.error('Error fetching student assessments:', err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
 module.exports = {
     createAssessment,
     getSubjectAssessments,
@@ -273,5 +311,6 @@ module.exports = {
     updateAssessment,
     deleteAssessment,
     submitAssessmentResults,
-    completeAssessment
+    completeAssessment,
+    getStudentAssessments
 };

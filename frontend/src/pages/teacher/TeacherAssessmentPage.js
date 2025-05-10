@@ -476,6 +476,7 @@ const TeacherAssessmentPage = () => {
                                 <StudentResultsTable
                                   students={assessment.students}
                                   totalMarks={assessment.totalMarks}
+                                  assessmentId={assessment._id}
                                 />
                               </Collapse>
                             </StyledTableCell>

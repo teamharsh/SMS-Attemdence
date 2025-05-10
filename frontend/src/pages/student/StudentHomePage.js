@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Container, Grid, Paper, Typography } from '@mui/material'
+import { Container, Grid, Paper, Typography, Button } from '@mui/material'
 import { useDispatch, useSelector } from 'react-redux';
 import { calculateOverallAttendancePercentage } from '../../components/attendanceCalculator';
 import CustomPieChart from '../../components/CustomPieChart';
@@ -10,14 +10,19 @@ import CountUp from 'react-countup';
 import Subject from "../../assets/subjects.svg";
 import Assignment from "../../assets/assignment.svg";
 import { getSubjectList } from '../../redux/sclassRelated/sclassHandle';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const StudentHomePage = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
 
     const { userDetails, currentUser, loading, response } = useSelector((state) => state.user);
     const { subjectsList } = useSelector((state) => state.sclass);
 
     const [subjectAttendance, setSubjectAttendance] = useState([]);
+    const [totalAssessments, setTotalAssessments] = useState(0);
+    const [loadingAssessments, setLoadingAssessments] = useState(true);
 
     const classID = currentUser.sclassName._id
 
@@ -25,6 +30,33 @@ const StudentHomePage = () => {
         dispatch(getUserDetails(currentUser._id, "Student"));
         dispatch(getSubjectList(classID, "ClassSubjects"));
     }, [dispatch, currentUser._id, classID]);
+
+    // Fetch total number of assessments for all subjects
+    useEffect(() => {
+        const fetchAssessmentsCount = async () => {
+            if (!subjectsList || subjectsList.length === 0) return;
+            
+            try {
+                setLoadingAssessments(true);
+                let count = 0;
+                
+                for (const subject of subjectsList) {
+                    const response = await axios.get(
+                        `${process.env.REACT_APP_BASE_URL}/assessments/subject/${subject._id}`
+                    );
+                    count += response.data.length;
+                }
+                
+                setTotalAssessments(count);
+                setLoadingAssessments(false);
+            } catch (error) {
+                console.error("Error fetching assessments count:", error);
+                setLoadingAssessments(false);
+            }
+        };
+
+        fetchAssessmentsCount();
+    }, [subjectsList]);
 
     const numberOfSubjects = subjectsList && subjectsList.length;
 
@@ -41,6 +73,11 @@ const StudentHomePage = () => {
         { name: 'Present', value: overallAttendancePercentage },
         { name: 'Absent', value: overallAbsentPercentage }
     ];
+
+    const handleNavigateToAssessments = () => {
+        navigate('/Student/assessments');
+    };
+
     return (
         <>
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -55,12 +92,29 @@ const StudentHomePage = () => {
                         </StyledPaper>
                     </Grid>
                     <Grid item xs={12} md={3} lg={3}>
-                        <StyledPaper>
+                        <StyledPaper 
+                            sx={{ cursor: 'pointer' }}
+                            onClick={handleNavigateToAssessments}
+                        >
                             <img src={Assignment} alt="Assignments" />
                             <Title>
-                                Total Assignments
+                                Total Assessments
                             </Title>
-                            <Data start={0} end={15} duration={4} />
+                            {loadingAssessments ? (
+                                <Typography>Loading...</Typography>
+                            ) : (
+                                <>
+                                    <Data start={0} end={totalAssessments} duration={3} />
+                                    <Button 
+                                        variant="text" 
+                                        color="primary" 
+                                        size="small"
+                                        sx={{ mt: 1 }}
+                                    >
+                                        View All
+                                    </Button>
+                                </>
+                            )}
                         </StyledPaper>
                     </Grid>
                     <Grid item xs={12} md={4} lg={3}>

@@ -1,95 +1,244 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Table,
-  TableHead,
   TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   Typography,
+  TextField,
+  Button,
   Chip,
+  IconButton,
+  CircularProgress,
+  Snackbar,
+  Alert
 } from '@mui/material';
-import { StyledTableCell, StyledTableRow } from '../../components/styles';
+import {
+  Save as SaveIcon,
+  Edit as EditIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon
+} from '@mui/icons-material';
+import axios from 'axios';
+import { StyledTableCell, StyledTableRow } from '../styles';
 
 /**
  * StudentResultsTable component for displaying student assessment results
  * @param {Object} props
  * @param {Array} props.students - Array of student objects with results
  * @param {Number} props.totalMarks - Total possible marks for the assessment
+ * @param {String} props.assessmentId - ID of the assessment
  */
-const StudentResultsTable = ({ students, totalMarks }) => {
-  // Helper function to determine color based on score
-  const getScoreColor = (score, total) => {
-    if (!score) return "warning";
-    const percentage = (score / total) * 100;
-    if (percentage >= 75) return "success";
-    if (percentage >= 60) return "warning";
-    return "error";
+const StudentResultsTable = ({ students, totalMarks, assessmentId }) => {
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editedMarks, setEditedMarks] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+
+  // Function to handle editing a student's marks
+  const handleEdit = (studentId, currentMarks) => {
+    setEditingStudent(studentId);
+    setEditedMarks(currentMarks !== null ? currentMarks.toString() : "");
   };
 
+  // Function to cancel editing
+  const handleCancel = () => {
+    setEditingStudent(null);
+    setEditedMarks("");
+  };
+
+  // Function to save the edited marks
+  const handleSave = async (studentId, studentName) => {
+    // Validate marks
+    const marksValue = parseFloat(editedMarks);
+    if (isNaN(marksValue) || marksValue < 0 || marksValue > totalMarks) {
+      setSnackbar({
+        open: true,
+        message: `Marks must be a number between 0 and ${totalMarks}`,
+        severity: 'error'
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Determine status based on marks
+      const status = marksValue > 0 ? 'Completed' : 'Pending';
+
+      await axios.post(`${process.env.REACT_APP_BASE_URL}/assessments/${assessmentId}/results`, {
+        studentId,
+        marks: marksValue,
+        status
+      });
+
+      setSnackbar({
+        open: true,
+        message: `Marks updated for ${studentName}`,
+        severity: 'success'
+      });
+      setEditingStudent(null);
+      
+      // Here you would typically refresh the assessment data
+      // This would come from a prop or be handled by the parent component
+      
+    } catch (error) {
+      console.error('Error updating marks:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update marks. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to render the marks cell
+  const renderMarksCell = (student) => {
+    if (editingStudent === student.studentId) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TextField
+            value={editedMarks}
+            onChange={(e) => setEditedMarks(e.target.value)}
+            type="number"
+            size="small"
+            sx={{ width: '80px' }}
+            inputProps={{ min: 0, max: totalMarks }}
+          />
+          {loading ? (
+            <CircularProgress size={24} />
+          ) : (
+            <>
+              <IconButton
+                color="primary"
+                onClick={() => handleSave(student.studentId, student.name)}
+                size="small"
+              >
+                <CheckCircleIcon />
+              </IconButton>
+              <IconButton
+                color="error"
+                onClick={handleCancel}
+                size="small"
+              >
+                <CancelIcon />
+              </IconButton>
+            </>
+          )}
+        </Box>
+      );
+    }
+
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {student.marks !== null ? (
+          <>
+            <Typography>{student.marks}</Typography>
+            <IconButton
+              size="small"
+              onClick={() => handleEdit(student.studentId, student.marks)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </>
+        ) : (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<EditIcon />}
+            onClick={() => handleEdit(student.studentId, null)}
+          >
+            Enter Marks
+          </Button>
+        )}
+      </Box>
+    );
+  };
+
+  // Handle snackbar close
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  // Get count of graded students
+  const gradedCount = students?.filter(s => s.marks !== null).length || 0;
+  
+  // Calculate average mark (only for students who have marks)
+  const totalPoints = students?.reduce((sum, student) => 
+    student.marks !== null ? sum + student.marks : sum, 0);
+  const average = gradedCount > 0 ? (totalPoints / gradedCount).toFixed(1) : '-';
+
   return (
-    <Box sx={{ m: 2 }}>
-      <Typography
-        variant="h6"
-        gutterBottom
-        component="div"
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-        }}
-      >
-        Student Results
-        <Chip
-          label={`${students?.length || 0} students`}
-          size="small"
-          color="secondary"
-        />
+    <Box sx={{ py: 2 }}>
+      <Typography variant="subtitle1" gutterBottom fontWeight="medium">
+        Student Results ({gradedCount}/{students?.length || 0} graded, Average: {average})
       </Typography>
       
-      {students && students.length > 0 ? (
-        <Box sx={{ overflowX: "auto" }}>
-          <Table size="small" aria-label="student results">
-            <TableHead>
-              <StyledTableRow>
-                <StyledTableCell>Student Name</StyledTableCell>
-                <StyledTableCell align="right">Marks</StyledTableCell>
-                <StyledTableCell align="right">Status</StyledTableCell>
-              </StyledTableRow>
-            </TableHead>
-            <TableBody>
-              {students.map((student) => (
-                <StyledTableRow key={student._id || student.id}>
-                  <StyledTableCell component="th" scope="row">
-                    {student.name}
-                  </StyledTableCell>
-                  <StyledTableCell align="right">
-                    <Chip
-                      label={
-                        student.marks !== null
-                          ? `${student.marks}/${totalMarks}`
-                          : "Pending"
-                      }
-                      color={getScoreColor(student.marks, totalMarks)}
-                      size="small"
-                    />
-                  </StyledTableCell>
-                  <StyledTableCell align="right">
+      <TableContainer component={Paper} sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <StyledTableRow>
+              <StyledTableCell>Student Name</StyledTableCell>
+              <StyledTableCell align="center">Marks (/{totalMarks})</StyledTableCell>
+              <StyledTableCell align="center">Status</StyledTableCell>
+            </StyledTableRow>
+          </TableHead>
+          <TableBody>
+            {students?.length > 0 ? (
+              students.map((student) => (
+                <StyledTableRow key={student.studentId}>
+                  <StyledTableCell>{student.name}</StyledTableCell>
+                  <StyledTableCell align="center">{renderMarksCell(student)}</StyledTableCell>
+                  <StyledTableCell align="center">
                     <Chip
                       label={student.status}
                       color={
-                        student.status === "Completed" ? "success" : "warning"
+                        student.status === 'Completed'
+                          ? 'success'
+                          : student.status === 'Submitted'
+                          ? 'info'
+                          : 'warning'
                       }
                       size="small"
-                      variant="outlined"
                     />
                   </StyledTableCell>
                 </StyledTableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      ) : (
-        <Typography>No student results available</Typography>
-      )}
+              ))
+            ) : (
+              <StyledTableRow>
+                <StyledTableCell colSpan={3} align="center">
+                  No students found
+                </StyledTableCell>
+              </StyledTableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

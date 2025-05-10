@@ -1,53 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   IconButton,
+  Typography,
   Box,
   CircularProgress,
-  Typography,
-  Button,
   Alert,
+  Button,
 } from '@mui/material';
-import { Close as CloseIcon, OpenInNew } from '@mui/icons-material';
+import {
+  Close as CloseIcon,
+  OpenInNew as OpenInNewIcon,
+  Download as DownloadIcon,
+} from '@mui/icons-material';
 
 /**
  * PDFViewer component for displaying PDF documents in a modal dialog
  * @param {Object} props - Component props
  * @param {boolean} props.open - Controls if the dialog is open
- * @param {function} props.onClose - Function to call when dialog is closed
+ * @param {function} props.handleClose - Function to call when dialog is closed
  * @param {string} props.pdfUrl - URL of the PDF to display
  * @param {string} props.title - Dialog title (optional)
  */
-const PDFViewer = ({ open, onClose, pdfUrl, title = "Document Viewer" }) => {
+const PDFViewer = ({ open, handleClose, pdfUrl, title }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
-    // Reset states when the URL changes
-    if (pdfUrl) {
-      setLoading(true);
-      setError(null);
-      // Log the URL to help with debugging
-      console.log(`Loading PDF from: ${pdfUrl}`);
-    }
-  }, [pdfUrl]);
-
-  const handleClose = () => {
-    onClose();
-    // Reset states when dialog is closed
-    setLoading(true);
-    setError(null);
-    setRetryCount(0);
+  const handleIframeLoad = () => {
+    setLoading(false);
   };
 
-  // Function to handle retry
-  const handleRetry = () => {
-    setLoading(true);
-    setError(null);
-    setRetryCount(prev => prev + 1);
+  const handleIframeError = () => {
+    setError('Failed to load the PDF document.');
+    setLoading(false);
+  };
+
+  const openInNewTab = () => {
+    window.open(pdfUrl, '_blank');
+  };
+
+  const downloadPdf = () => {
+    // Create a temporary anchor element to download the file
+    const a = document.createElement('a');
+    a.href = pdfUrl;
+    a.download = 'document.pdf'; // Default name
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
@@ -55,66 +56,98 @@ const PDFViewer = ({ open, onClose, pdfUrl, title = "Document Viewer" }) => {
       open={open}
       onClose={handleClose}
       fullWidth
-      maxWidth="md"
+      maxWidth="lg"
       PaperProps={{
-        sx: { height: "80vh" },
+        sx: {
+          height: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+        },
       }}
     >
-      <DialogTitle>
-        {title}
-        <IconButton
-          onClick={handleClose}
-          sx={{ position: "absolute", right: 8, top: 8 }}
-        >
-          <CloseIcon />
-        </IconButton>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          p: 2,
+        }}
+      >
+        <Typography variant="h6">
+          {title || 'View Document'}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            startIcon={<OpenInNewIcon />}
+            onClick={openInNewTab}
+            size="small"
+          >
+            Open
+          </Button>
+          <Button
+            startIcon={<DownloadIcon />}
+            onClick={downloadPdf}
+            size="small"
+          >
+            Download
+          </Button>
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={handleClose}
+            aria-label="close"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
       </DialogTitle>
-      <DialogContent dividers>
+      <DialogContent sx={{ p: 0, flexGrow: 1, position: 'relative' }}>
         {loading && (
-          <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1,
+              bgcolor: 'rgba(255, 255, 255, 0.7)',
+            }}
+          >
             <CircularProgress />
           </Box>
         )}
+        
         {error && (
-          <Box sx={{ color: "error.main", textAlign: "center", my: 4 }}>
-            <Alert severity="error" sx={{ mb: 2 }}>
-              <Typography variant="h6">Error loading PDF</Typography>
-              <Typography variant="body1">{error}</Typography>
-            </Alert>
-            <Button
-              variant="contained"
-              color="primary"
-              sx={{ mt: 2, mr: 1 }}
-              onClick={handleRetry}
-            >
-              Retry
+          <Alert 
+            severity="error" 
+            sx={{ 
+              position: 'absolute', 
+              top: '50%', 
+              left: '50%', 
+              transform: 'translate(-50%, -50%)',
+              zIndex: 1
+            }}
+          >
+            {error}
+            <Button sx={{ ml: 2 }} variant="outlined" size="small" onClick={openInNewTab}>
+              Try Open in New Tab
             </Button>
-            <Button
-              variant="outlined"
-              color="primary"
-              sx={{ mt: 2 }}
-              onClick={() => window.open(pdfUrl, "_blank")}
-              startIcon={<OpenInNew />}
-            >
-              Open in New Tab
-            </Button>
-          </Box>
+          </Alert>
         )}
-        <Box sx={{ height: "100%", display: loading ? "none" : "block" }}>
-          {pdfUrl && (
-            <iframe
-              src={`${pdfUrl}?v=${retryCount}`}
-              style={{ width: "100%", height: "100%", border: "none" }}
-              onLoad={() => setLoading(false)}
-              onError={(e) => {
-                console.error("PDF iframe error:", e);
-                setLoading(false);
-                setError("Failed to load the PDF document. The file might not exist or there might be a server error.");
-              }}
-              title="PDF Viewer"
-            />
-          )}
-        </Box>
+        
+        <iframe
+          src={pdfUrl}
+          title="PDF Document"
+          width="100%"
+          height="100%"
+          style={{ border: 'none' }}
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+        />
       </DialogContent>
     </Dialog>
   );

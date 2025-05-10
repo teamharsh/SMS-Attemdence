@@ -6,7 +6,8 @@ const {
     updateAssessment,
     deleteAssessment,
     submitAssessmentResults,
-    completeAssessment
+    completeAssessment,
+    getStudentAssessments
 } = require('../controllers/assessment-controller.js');
 const upload = require('../middleware/gridfs-config');
 
@@ -15,6 +16,9 @@ router.post('/create', upload.single('questionFile'), createAssessment);
 
 // Get all assessments for a subject
 router.get('/subject/:id', getSubjectAssessments);
+
+// Get all assessments for a student
+router.get('/student/:id', getStudentAssessments);
 
 // Get a single assessment by ID
 router.get('/:id', getAssessment);

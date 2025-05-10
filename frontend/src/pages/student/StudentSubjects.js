@@ -1,19 +1,22 @@
 import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { getSubjectList } from '../../redux/sclassRelated/sclassHandle';
-import { BottomNavigation, BottomNavigationAction, Container, Paper, Table, TableBody, TableHead, Typography } from '@mui/material';
+import { BottomNavigation, BottomNavigationAction, Container, Paper, Table, TableBody, TableHead, Typography, Button, Card, CardContent, CardActionArea, Grid } from '@mui/material';
 import { getUserDetails } from '../../redux/userRelated/userHandle';
 import CustomBarChart from '../../components/CustomBarChart'
+import { useNavigate } from 'react-router-dom';
 
 import InsertChartIcon from '@mui/icons-material/InsertChart';
 import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
+import QuizIcon from '@mui/icons-material/Quiz';
 import { StyledTableCell, StyledTableRow } from '../../components/styles';
 
-const StudentSubjects = () => {
+const StudentSubjects = ({ assessmentMode = false }) => {
 
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { subjectsList, sclassDetails } = useSelector((state) => state.sclass);
     const { userDetails, currentUser, loading, response, error } = useSelector((state) => state.user);
 
@@ -41,6 +44,11 @@ const StudentSubjects = () => {
 
     const handleSectionChange = (event, newSection) => {
         setSelectedSection(newSection);
+    };
+
+    // Navigate to assessment page for the selected subject
+    const handleViewAssessments = (subjectId) => {
+        navigate(`/Student/assessments/${subjectId}`);
     };
 
     const renderTableSection = () => {
@@ -82,22 +90,60 @@ const StudentSubjects = () => {
         return (
             <Container>
                 <Typography variant="h4" align="center" gutterBottom>
-                    Class Details
+                    {assessmentMode ? "Select Subject for Assessments" : "Class Details"}
                 </Typography>
-                <Typography variant="h5" gutterBottom>
-                    You are currently in Class {sclassDetails && sclassDetails.sclassName}
-                </Typography>
-                <Typography variant="h6" gutterBottom>
-                    And these are the subjects:
-                </Typography>
-                {subjectsList &&
-                    subjectsList.map((subject, index) => (
-                        <div key={index}>
-                            <Typography variant="subtitle1">
-                                {subject.subName} ({subject.subCode})
-                            </Typography>
-                        </div>
-                    ))}
+                
+                {!assessmentMode && (
+                    <Typography variant="h5" gutterBottom>
+                        You are currently in Class {sclassDetails && sclassDetails.sclassName}
+                    </Typography>
+                )}
+
+                {assessmentMode ? (
+                    <Grid container spacing={3} sx={{ mt: 2 }}>
+                        {subjectsList && subjectsList.map((subject, index) => (
+                            <Grid item xs={12} sm={6} md={4} key={index}>
+                                <Card sx={{ height: '100%' }}>
+                                    <CardActionArea 
+                                        sx={{ height: '100%' }}
+                                        onClick={() => handleViewAssessments(subject._id)}
+                                    >
+                                        <CardContent>
+                                            <Typography variant="h6" component="div" gutterBottom>
+                                                {subject.subName}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Subject Code: {subject.subCode}
+                                            </Typography>
+                                            <Button 
+                                                variant="contained" 
+                                                color="primary"
+                                                startIcon={<QuizIcon />}
+                                                sx={{ mt: 2 }}
+                                            >
+                                                View Assessments
+                                            </Button>
+                                        </CardContent>
+                                    </CardActionArea>
+                                </Card>
+                            </Grid>
+                        ))}
+                    </Grid>
+                ) : (
+                    <>
+                        <Typography variant="h6" gutterBottom>
+                            And these are the subjects:
+                        </Typography>
+                        {subjectsList &&
+                            subjectsList.map((subject, index) => (
+                                <div key={index}>
+                                    <Typography variant="subtitle1">
+                                        {subject.subName} ({subject.subCode})
+                                    </Typography>
+                                </div>
+                            ))}
+                    </>
+                )}
             </Container>
         );
     };
@@ -108,32 +154,38 @@ const StudentSubjects = () => {
                 <div>Loading...</div>
             ) : (
                 <div>
-                    {subjectMarks && Array.isArray(subjectMarks) && subjectMarks.length > 0
-                        ?
-                        (<>
-                            {selectedSection === 'table' && renderTableSection()}
-                            {selectedSection === 'chart' && renderChartSection()}
+                    {assessmentMode ? (
+                        renderClassDetailsSection()
+                    ) : (
+                        <>
+                            {subjectMarks && Array.isArray(subjectMarks) && subjectMarks.length > 0
+                                ?
+                                (<>
+                                    {selectedSection === 'table' && renderTableSection()}
+                                    {selectedSection === 'chart' && renderChartSection()}
 
-                            <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
-                                <BottomNavigation value={selectedSection} onChange={handleSectionChange} showLabels>
-                                    <BottomNavigationAction
-                                        label="Table"
-                                        value="table"
-                                        icon={selectedSection === 'table' ? <TableChartIcon /> : <TableChartOutlinedIcon />}
-                                    />
-                                    <BottomNavigationAction
-                                        label="Chart"
-                                        value="chart"
-                                        icon={selectedSection === 'chart' ? <InsertChartIcon /> : <InsertChartOutlinedIcon />}
-                                    />
-                                </BottomNavigation>
-                            </Paper>
-                        </>)
-                        :
-                        (<>
-                            {renderClassDetailsSection()}
-                        </>)
-                    }
+                                    <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
+                                        <BottomNavigation value={selectedSection} onChange={handleSectionChange} showLabels>
+                                            <BottomNavigationAction
+                                                label="Table"
+                                                value="table"
+                                                icon={selectedSection === 'table' ? <TableChartIcon /> : <TableChartOutlinedIcon />}
+                                            />
+                                            <BottomNavigationAction
+                                                label="Chart"
+                                                value="chart"
+                                                icon={selectedSection === 'chart' ? <InsertChartIcon /> : <InsertChartOutlinedIcon />}
+                                            />
+                                        </BottomNavigation>
+                                    </Paper>
+                                </>)
+                                :
+                                (<>
+                                    {renderClassDetailsSection()}
+                                </>)
+                            }
+                        </>
+                    )}
                 </div>
             )}
         </>
