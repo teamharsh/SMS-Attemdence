@@ -516,7 +516,7 @@ const TeacherAssessmentPage = () => {
 
           <PDFViewer
             open={pdfOpen}
-            onClose={handleClosePdf}
+            handleClose={handleClosePdf}
             pdfUrl={currentPdfUrl}
             title="Document Viewer"
           />

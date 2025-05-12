@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -28,11 +28,25 @@ const PDFViewer = ({ open, handleClose, pdfUrl, title }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  useEffect(() => {
+    // Log for debugging
+    console.log('PDFViewer state:', { open, pdfUrl });
+  }, [open, pdfUrl]);
+
+  const handleDialogClose = () => {
+    console.log('PDF Dialog closing');
+    setLoading(true);
+    setError(null);
+    handleClose();
+  };
+
   const handleIframeLoad = () => {
+    console.log('PDF iframe loaded successfully');
     setLoading(false);
   };
 
   const handleIframeError = () => {
+    console.error('Failed to load PDF in iframe');
     setError('Failed to load the PDF document.');
     setLoading(false);
   };
@@ -54,7 +68,7 @@ const PDFViewer = ({ open, handleClose, pdfUrl, title }) => {
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={handleDialogClose}
       fullWidth
       maxWidth="lg"
       PaperProps={{
@@ -94,14 +108,15 @@ const PDFViewer = ({ open, handleClose, pdfUrl, title }) => {
           <IconButton
             edge="end"
             color="inherit"
-            onClick={handleClose}
+            onClick={handleDialogClose}
             aria-label="close"
           >
             <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
-      <DialogContent sx={{ p: 0, flexGrow: 1, position: 'relative' }}>
+      
+      <DialogContent sx={{ flexGrow: 1, p: 0, position: 'relative' }}>
         {loading && (
           <Box
             sx={{

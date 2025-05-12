@@ -38,15 +38,14 @@ const StudentHomePage = () => {
             
             try {
                 setLoadingAssessments(true);
-                let count = 0;
                 
-                for (const subject of subjectsList) {
-                    const response = await axios.get(
-                        `${process.env.REACT_APP_BASE_URL}/assessments/subject/${subject._id}`
-                    );
-                    count += response.data.length;
-                }
+                // Use a single API call to get all assessments for the student
+                const response = await axios.get(
+                    `${process.env.REACT_APP_BASE_URL}/assessments/student/${currentUser._id}`
+                );
                 
+                // Set the total count directly from response length
+                const count = response.data.length || 0;
                 setTotalAssessments(count);
                 setLoadingAssessments(false);
             } catch (error) {
@@ -55,8 +54,10 @@ const StudentHomePage = () => {
             }
         };
 
-        fetchAssessmentsCount();
-    }, [subjectsList]);
+        if (currentUser && currentUser._id) {
+            fetchAssessmentsCount();
+        }
+    }, [subjectsList, currentUser]);
 
     const numberOfSubjects = subjectsList && subjectsList.length;
 
