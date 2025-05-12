@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const mongoose = require('mongoose');
-const upload = require('../middleware/gridfs-config');
+const { fileUpload, ensureGridFSReady } = require('../middleware/file-upload-middleware');
 const { 
     getFiles,
     getFile,
@@ -9,11 +9,19 @@ const {
     getFilesByAssessment
 } = require('../controllers/file-controller.js');
 
+// Add a simple test route
+router.get('/test', (req, res) => {
+    res.json({
+        message: 'File route is working',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Get all files
-router.get('/', getFiles);
+router.get('/', ensureGridFSReady, getFiles);
 
 // Get file by ID
-router.get('/:id', getFile);
+router.get('/:id', ensureGridFSReady, getFile);
 
 // Debug endpoint to check GridFS status
 router.get('/status/check', async (req, res) => {
@@ -60,18 +68,19 @@ router.get('/status/check', async (req, res) => {
 });
 
 // Stream file (for viewing)
-router.get('/:id/view', async (req, res) => {
+router.get('/:id/view', ensureGridFSReady, async (req, res) => {
     try {
-        // Get gfs from the app settings or global
-        const gfs = req.app.get('gridfs') || global.gfs;
+        // Get MongoDB connection
+        const conn = mongoose.connection;
+        const fileId = new mongoose.Types.ObjectId(req.params.id);
+        console.log(`Attempting to stream file with ID: ${fileId}`);
         
+        // Get the file metadata from GridFS files collection
+        const gfs = req.app.get('gridfs') || global.gfs;
         if (!gfs) {
             console.error('GridFS not initialized when accessing file');
             return res.status(500).json({ message: 'GridFS not initialized' });
         }
-        
-        const fileId = new mongoose.Types.ObjectId(req.params.id);
-        console.log(`Attempting to stream file with ID: ${fileId}`);
         
         // Find the file in GridFS
         const file = await gfs.files.findOne({ _id: fileId });
@@ -83,13 +92,19 @@ router.get('/:id/view', async (req, res) => {
         console.log(`Found file: ${file.filename}, type: ${file.contentType}`);
         
         // Set appropriate headers for PDF
-        res.set('Content-Type', 'application/pdf');
+        res.set('Content-Type', file.contentType || 'application/pdf');
         res.set('Content-Disposition', `inline; filename="${file.filename}"`);
         res.set('Cache-Control', 'public, max-age=3600'); // Cache for better performance
         
-        // Create a download stream with error handling
-        const downloadStream = gfs.createReadStream({ _id: fileId });
+        // Create GridFSBucket for streaming (modern approach)
+        const bucket = new mongoose.mongo.GridFSBucket(conn.db, {
+            bucketName: 'uploads'
+        });
         
+        // Create download stream
+        const downloadStream = bucket.openDownloadStream(fileId);
+        
+        // Handle stream errors
         downloadStream.on('error', error => {
             console.error(`Error streaming file ${fileId}:`, error);
             if (!res.headersSent) {
@@ -97,7 +112,7 @@ router.get('/:id/view', async (req, res) => {
             }
         });
         
-        // Pipe the file to the response with error handling
+        // Pipe the file to the response
         downloadStream.pipe(res)
             .on('error', err => {
                 console.error(`Pipe error for file ${fileId}:`, err);
@@ -111,47 +126,14 @@ router.get('/:id/view', async (req, res) => {
     }
 });
 
-// Quick direct access route to test with the specific file ID
-router.get('/specific/67eace5d7d28757ce6eefb78', async (req, res) => {
-    try {
-        const gfs = req.app.get('gridfs') || global.gfs;
-        if (!gfs) {
-            return res.status(500).json({ message: 'GridFS not initialized' });
-        }
-        
-        const fileId = new mongoose.Types.ObjectId('67eace5d7d28757ce6eefb78');
-        const file = await gfs.files.findOne({ _id: fileId });
-        
-        if (!file) {
-            return res.status(404).json({ message: 'Specific test file not found' });
-        }
-        
-        res.set('Content-Type', 'application/pdf');
-        res.set('Content-Disposition', `inline; filename="${file.filename}"`);
-        
-        const downloadStream = gfs.createReadStream({ _id: fileId });
-        downloadStream.on('error', error => {
-            console.error('Error streaming specific test file:', error);
-            if (!res.headersSent) {
-                res.status(500).json({ message: 'Error streaming file' });
-            }
-        });
-        
-        downloadStream.pipe(res);
-    } catch (err) {
-        console.error('Error with specific file test route:', err);
-        res.status(500).json({ message: 'Error: ' + err.message });
-    }
-});
-
 // Delete file
-router.delete('/:id', deleteFile);
+router.delete('/:id', ensureGridFSReady, deleteFile);
 
 // Get files by assessment ID
-router.get('/assessment/:assessmentId', getFilesByAssessment);
+router.get('/assessment/:assessmentId', ensureGridFSReady, getFilesByAssessment);
 
-// File upload endpoint with detailed logging
-router.post('/upload', upload.single('file'), async (req, res) => {
+// File upload endpoint with more robust GridFS checking
+router.post('/upload', fileUpload('file'), async (req, res) => {
     try {
         if (!req.file) {
             console.error('No file uploaded in request');
@@ -175,6 +157,88 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         console.error('Error uploading file:', err);
         res.status(500).json({ 
             message: 'Error uploading file: ' + err.message,
+            stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined
+        });
+    }
+});
+
+// Add a route to reinitialize GridFS collections
+router.post('/initialize-gridfs', async (req, res) => {
+    try {
+        const conn = mongoose.connection;
+        
+        // Check if GridFS collections exist
+        const collections = await conn.db.listCollections({ name: /uploads/ }).toArray();
+        const collectionsFound = collections.map(c => c.name);
+        
+        // If GridFS is already initialized
+        if (collectionsFound.includes('uploads.files') && collectionsFound.includes('uploads.chunks')) {
+            return res.json({ 
+                message: 'GridFS collections already exist',
+                collections: collectionsFound
+            });
+        }
+        
+        // Initialize GridFS collections by creating a temporary file
+        if (!global.gridFSBucket) {
+            // If gridFSBucket doesn't exist, create it
+            if (!mongoose.mongo.GridFSBucket) {
+                return res.status(500).json({
+                    error: 'GridFSBucket not available',
+                    mongooseReadyState: mongoose.connection.readyState
+                });
+            }
+            
+            const { GridFSBucket } = mongoose.mongo;
+            global.gridFSBucket = new GridFSBucket(conn.db, { bucketName: 'uploads' });
+        }
+        
+        const bucket = global.gridFSBucket;
+        
+        // Create a simple buffer to store
+        const buffer = Buffer.from('GridFS initialization file - ' + new Date().toISOString());
+        
+        // Create a unique filename
+        const filename = `gridfs-init-${Date.now()}.txt`;
+        
+        // Upload the buffer to GridFS
+        const uploadStream = bucket.openUploadStream(filename, {
+            metadata: { purpose: 'initialization' }
+        });
+        
+        uploadStream.end(buffer);
+        
+        // Wait for upload to complete
+        await new Promise((resolve, reject) => {
+            uploadStream.on('finish', resolve);
+            uploadStream.on('error', reject);
+        });
+        
+        // Verify collections were created
+        const newCollections = await conn.db.listCollections({ name: /uploads/ }).toArray();
+        const newCollectionsFound = newCollections.map(c => c.name);
+        
+        // Make sure the global GridFS instances are available
+        if (!global.gfs && newCollectionsFound.includes('uploads.files')) {
+            // If GridFS instance doesn't exist, create it
+            const Grid = require('gridfs-stream');
+            global.gfs = Grid(conn.db, mongoose.mongo);
+            global.gfs.collection('uploads');
+            
+            // Also set on app
+            req.app.set('gridfs', global.gfs);
+        }
+        
+        res.json({
+            message: 'GridFS collections initialized successfully',
+            before: collectionsFound,
+            after: newCollectionsFound,
+            filename: filename
+        });
+    } catch (err) {
+        console.error('Error in GridFS initialization route:', err);
+        res.status(500).json({ 
+            error: err.message,
             stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined
         });
     }
