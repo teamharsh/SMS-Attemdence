@@ -1,13 +1,13 @@
 const router = require('express').Router();
-const { 
-    createAssessment, 
-    getSubjectAssessments, 
-    getAssessment,
-    updateAssessment,
-    deleteAssessment,
-    submitAssessmentResults,
-    completeAssessment,
-    getStudentAssessments
+const {
+  createAssessment,
+  getSubjectAssessments,
+  getAssessment,
+  updateAssessment,
+  deleteAssessment,
+  submitAssessmentResults,
+  completeAssessment,
+  getStudentAssessments,
 } = require('../controllers/assessment-controller.js');
 const upload = require('../middleware/gridfs-config');
 
@@ -36,12 +36,17 @@ router.post('/:id/results', submitAssessmentResults);
 router.put('/:id/complete', completeAssessment);
 
 // Toggle assessment status with optional solution file upload
-router.put('/:id/status', upload.single('solutionFile'), async (req, res, next) => {
+router.put(
+  '/:id/status',
+  upload.single('solutionFile'),
+  async (req, res, next) => {
     // If a file was uploaded, add its ID to the request body
     if (req.file) {
-        req.body.solutionPdfUrl = req.file.id;
+      req.body.solutionPdfUrl = req.file.id;
     }
     next();
-}, completeAssessment);
+  },
+  completeAssessment
+);
 
 module.exports = router;
