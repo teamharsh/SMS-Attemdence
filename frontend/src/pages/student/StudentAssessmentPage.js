@@ -103,8 +103,12 @@ const StudentAssessmentPage = () => {
   };
 
   // Filter assessments based on status
-  const ongoingAssessments = assessments?.filter(assessment => !assessment.isCompleted) || [];
-  const completedAssessments = assessments?.filter(assessment => assessment.isCompleted) || [];
+  const ongoingAssessments = Array.isArray(assessments) 
+    ? assessments.filter(assessment => !assessment.isCompleted) 
+    : [];
+  const completedAssessments = Array.isArray(assessments) 
+    ? assessments.filter(assessment => assessment.isCompleted) 
+    : [];
 
   // Find student's result in each assessment
   const getStudentResult = (assessment) => {
