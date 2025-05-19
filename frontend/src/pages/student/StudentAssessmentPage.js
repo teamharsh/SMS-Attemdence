@@ -213,19 +213,11 @@ const StudentAssessmentPage = () => {
   };
 
   // Filter assessments based on status
-<<<<<<< HEAD
-  const ongoingAssessments = Array.isArray(assessments) 
-    ? assessments.filter(assessment => !assessment.isCompleted) 
-    : [];
-  const completedAssessments = Array.isArray(assessments) 
-    ? assessments.filter(assessment => assessment.isCompleted) 
-=======
   const ongoingAssessments = Array.isArray(assessments)
     ? assessments.filter((assessment) => !assessment.isCompleted)
     : [];
   const completedAssessments = Array.isArray(assessments)
     ? assessments.filter((assessment) => assessment.isCompleted)
->>>>>>> debfe8d07a703e2118f4de7b30f3c963092f8db2
     : [];
 
   // Find student's result in each assessment
