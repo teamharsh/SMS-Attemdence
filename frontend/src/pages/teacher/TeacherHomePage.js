@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import Students from '../../assets/img1.png';
 import Lessons from '../../assets/subjects.svg';
 import Tests from '../../assets/assignment.svg';
-import Time from '../../assets/time.svg';
+import Time from '../../assets/img4.jpeg';
 import {
   getClassStudents,
   getSubjectDetails,
@@ -117,7 +117,11 @@ const TeacherHomePage = () => {
           </Grid>
           <Grid item xs={12} md={3} lg={3}>
             <StyledPaper>
-              <img src={Time} alt="Time" />
+              <img
+                src={Time}
+                alt="Time"
+                style={{ width: '70%', height: '60%' }}
+              />
               <Title>Total Complaints</Title>
               <Data start={0} end={totalComplaints} duration={2.5} />
             </StyledPaper>

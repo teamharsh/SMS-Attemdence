@@ -386,77 +386,7 @@ const StudentAssessmentPage = () => {
   const renderStatisticsCards = () => {
     if (subjectId) {
       // Single Assessment View Cards
-      return (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Your Score
-                </Typography>
-                <Typography variant="h4" color="primary.main">
-                  {assessmentStats.yourScore}/{assessmentStats.totalMarks}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Rank: {assessmentStats.yourRank} of{' '}
-                  {assessmentStats.totalStudents}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Class Performance
-                </Typography>
-                <Typography variant="h6" color="success.main">
-                  Highest: {assessmentStats.highestScore}
-                </Typography>
-                <Typography variant="h6" color="error.main">
-                  Lowest: {assessmentStats.lowestScore}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Average: {assessmentStats.averageScore}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Submission Status
-                </Typography>
-                <Typography variant="h4" color="info.main">
-                  {assessmentStats.submittedCount}/
-                  {assessmentStats.totalStudents}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Students Submitted
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Assessment Status
-                </Typography>
-                <Typography
-                  variant="h6"
-                  color={getStatusColor(assessmentStats.status)}>
-                  {assessmentStats.status}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Due: {formatDate(assessmentStats.dueDate)}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      );
+      return <></>;
     } else {
       // All Assessments View Cards (existing cards)
       return (

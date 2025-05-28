@@ -3,7 +3,7 @@ import SeeNotice from '../../components/SeeNotice';
 import Students from '../../assets/img1.png';
 import Classes from '../../assets/img2.png';
 import Teachers from '../../assets/img3.png';
-import Fees from '../../assets/img4.png';
+import Fees from '../../assets/img4.jpeg';
 import styled from 'styled-components';
 import CountUp from 'react-countup';
 import { useDispatch, useSelector } from 'react-redux';
@@ -65,7 +65,11 @@ const AdminHomePage = () => {
           </Grid>
           <Grid item xs={12} md={3} lg={3}>
             <StyledPaper>
-              <img src={Fees} alt="Fees" />
+              <img
+                src={Fees}
+                alt="Fees"
+                style={{ width: '70%', height: '60%' }}
+              />
               <Title>Total Complaints</Title>
               <Data start={0} end={numberOfComplaints} duration={2.5} />{' '}
             </StyledPaper>
